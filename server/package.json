@@ -1,0 +1,22 @@
+{
+  "name": "joanita-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "API Joanita : Express + RodiumAI",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch --env-file-if-exists=.env index.js",
+    "models": "node --env-file-if-exists=.env scripts/models.js",
+    "wallet": "node --env-file-if-exists=.env scripts/wallet.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "openai": "^5.0.0"
+  }
+}

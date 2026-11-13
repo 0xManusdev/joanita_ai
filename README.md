@@ -1,11 +1,9 @@
 # Joanita
 
-Assistante des étudiants (université fictive) propulsée par **RodiumAI**. Elle fait deux choses :
-
-- **Scolarité** : elle répond aux questions (inscriptions, examens, bourses…) à partir d'une FAQ.
-- **Exposés** : c'est un **agent**. Quand un étudiant dit « Je prépare un exposé sur… », elle lance
-  elle-même plusieurs recherches web, lit les meilleures sources, puis rédige une synthèse
-  (plan, points clés, pistes) avec des citations [n] vers ses sources.
+Assistante de recherche pour les étudiants, propulsée par **RodiumAI**. C'est un **agent** : l'étudiant
+donne un sujet (« Je prépare un exposé sur… »), Joanita mène elle-même une recherche approfondie
+(recherches web en français et en anglais, articles scientifiques, lecture détaillée des meilleures sources),
+puis rédige une synthèse (contexte, plan, points clés, débats, lectures) avec des citations [n] vers ses sources.
 
 Mini-projet support de la présentation « Déployer une application IA ».
 
@@ -15,15 +13,17 @@ joanita/
 └── server/   Node + Express : l'API qui appelle RodiumAI    → Railway
               ├── POST /api/chat     réponse en streaming (étapes de l'agent, texte, sources)
               ├── GET  /api/health   état du service + modèles disponibles
-              ├── agent.js           la boucle d'agent : modèle → outils → modèle… (6 étapes max)
-              ├── tools.js           les outils : web_search (Tavily ou Wikipédia) et read_page
-              └── faq.md             la FAQ injectée dans le prompt
+              ├── agent.js           la boucle d'agent : modèle → outils → modèle… (14 tours max)
+              └── tools.js           les outils : web_search (Tavily ou Wikipédia), academic_search (OpenAlex), read_page
 ```
 
 **Comment marche l'agent ?** On décrit des *outils* au modèle (via l'API compatible OpenAI de RodiumAI).
 Le modèle répond soit par du texte, soit par « appelle `web_search` avec telle requête ». Le serveur
 exécute l'outil, renvoie le résultat au modèle, et recommence jusqu'à ce que le modèle rédige sa réponse.
-Garde-fous : 6 étapes maximum (coûts), `read_page` ne lit que des URL renvoyées par une recherche
+**Profondeur minimale** : tant que l'agent n'a pas fait au moins 5 recherches et lu 4 sources, le serveur
+refuse sa synthèse et le relance (3 fois au plus) : une simple consigne dans le prompt ne suffit pas,
+les petits modèles concluent trop vite. Une recherche prend ainsi 20 à 40 s avec Gemini 3.1 Flash Lite.
+Garde-fous : 14 tours maximum (coûts), `read_page` ne lit que des URL renvoyées par une recherche
 (sinon le modèle pourrait faire appeler n'importe quelle adresse au serveur : faille SSRF), le contenu
 des pages est traité comme une donnée et jamais comme une consigne (injection de prompt), et
 l'interface affiche le Markdown sans `innerHTML` (XSS).
@@ -87,6 +87,7 @@ Vérifie que **`.env` n'apparaît pas** dans le dépôt (il est dans `.gitignore
    | `MODEL` | `google/gemini-3.1-flash-lite` : modèle par défaut (un id de `npm run models`) |
    | `MODELS` | liste blanche des modèles du menu, séparés par des virgules (seuls ceux que ta clé peut utiliser s'affichent) |
    | `TAVILY_API_KEY` | `tvly-…` (optionnel : clé gratuite sur tavily.com ; sans elle, l'agent cherche sur Wikipédia) |
+   | `OPENALEX_API_KEY` | optionnel : clé gratuite sur openalex.org pour les articles scientifiques (sinon quota partagé) |
    | `ALLOWED_ORIGIN` | à remplir à l'étape 5 |
    Ne définis pas `PORT` : Railway le fournit.
 4. **Settings → Networking → Generate Domain**, puis teste
@@ -137,12 +138,13 @@ qu'on montre volontairement pendant la démo.
 | « Trop de requêtes » | Limite de 10 questions/minute/IP | Attendre, ou ajuster dans `server/index.js` |
 | Build Railway en échec | Root Directory pas sur `server` | Settings → Root Directory |
 | Recherches peu pertinentes (articles hors sujet) | Pas de `TAVILY_API_KEY` : recherche Wikipédia par mots-clés | Ajouter la clé Tavily sur Railway |
-| L'agent répond de mémoire, sans chercher | Modèle qui ignore les outils (ex. Gemma 4 31B) | Choisir un modèle Gemini dans le menu |
-| Recherche très lente (plus d'une minute) | Modèle qui « réfléchit » beaucoup (Gemini 2.5 Pro) | Gemini 3.1 Flash Lite : ~10 s |
+| Recherche très lente (plus d'une minute) | Modèle qui « réfléchit » beaucoup (Gemini 2.5 Pro) | Gemini 3.1 Flash Lite : 20 à 40 s |
 
 ## Coûts (à vérifier au moment du déploiement)
 
 - **RodiumAI** : paiement à l'usage en crédits RODI (recharge Mobile Money). Prix par modèle : `GET /v1/pricing` ou la page Models.
-- **Tavily** : 1 000 recherches gratuites par mois (une demande d'exposé en utilise 2 à 4).
+- **Tavily** : 1 000 crédits gratuits par mois. Une recherche « avancée » coûte 2 crédits et une demande
+  d'exposé en lance 3 à 6, plus quelques lectures de pages : compter environ 15 crédits par exposé.
+- **OpenAlex** : gratuit (quota quotidien plus large avec une clé gratuite).
 - **Railway** : essai unique de 5 $ (30 jours), puis plan Hobby à 5 $/mois.
 - **Vercel** : plan Hobby gratuit, réservé à un usage personnel et non commercial.

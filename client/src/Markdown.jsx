@@ -37,7 +37,8 @@ export default function Markdown({ text, sources = [] }) {
     const line = raw.replace(/\s+$/, "");
     const heading = line.match(/^(#{1,4})\s+(.*)$/);
     const item = line.match(/^(\s*)([-*•]|\d+[.)])\s+(.*)$/);
-    if (heading) { flush(); blocks.push({ type: "h", level: heading[1].length, text: heading[2] }); }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flush(); blocks.push({ type: "hr" }); } // --- ou ***
+    else if (heading) { flush(); blocks.push({ type: "h", level: heading[1].length, text: heading[2] }); }
     else if (item) {
       list ??= { items: [] };
       const level = Math.min(2, Math.floor(item[1].replace(/\t/g, "  ").length / 2));
@@ -51,6 +52,7 @@ export default function Markdown({ text, sources = [] }) {
   return (
     <div className="md">
       {blocks.map((b, i) => {
+        if (b.type === "hr") return <hr key={i} />;
         if (b.type === "h") return b.level <= 2
           ? <h3 key={i}><Inline text={b.text} sources={sources} /></h3>
           : <h4 key={i}><Inline text={b.text} sources={sources} /></h4>;
